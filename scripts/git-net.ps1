@@ -41,10 +41,11 @@ try {
 
 if ($proxyAvailable) {
     Write-Host "[git-net] proxy 127.0.0.1:$ProxyPort is up, using proxy" -ForegroundColor DarkGray
-    & git -c "http.proxy=http://127.0.0.1:$ProxyPort" @GitArgs
+    # Git for Windows 默认的 schannel 在经代理握手时容易失败，改用 OpenSSL 后端。
+    & git -c "http.proxy=http://127.0.0.1:$ProxyPort" -c "http.sslBackend=openssl" @GitArgs
 } else {
     Write-Host "[git-net] proxy is down, using direct connection" -ForegroundColor DarkGray
-    & git -c "http.proxy=" @GitArgs
+    & git -c "http.proxy=" -c "http.sslBackend=openssl" @GitArgs
 }
 
 exit $LASTEXITCODE
