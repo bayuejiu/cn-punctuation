@@ -1,79 +1,18 @@
-import type {
-  AppConfig,
-  CheckResult,
-  Issue,
-  LlmConfig,
-  LlmReviewResult,
-  Paragraph,
-} from './types'
+import { runCheck } from './rules/engine'
+import type { CheckResult } from './types'
 
-async function ensureOk(response: Response): Promise<Response> {
-  if (response.ok) return response
-  let detail = `请求失败（${response.status}）`
-  try {
-    const data = await response.json()
-    if (data && data.detail) detail = String(data.detail)
-  } catch {
-    // 保持默认错误信息
-  }
-  throw new Error(detail)
-}
-
-export async function getConfig(): Promise<AppConfig> {
-  const response = await fetch('/api/config')
-  await ensureOk(response)
-  return response.json()
-}
-
+/** 纯前端校对：全部在浏览器内完成，不发起任何网络请求。 */
 export async function checkText(text: string, fileName: string): Promise<CheckResult> {
-  const response = await fetch('/api/check', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, fileName }),
-  })
-  await ensureOk(response)
-  return response.json()
+  return runCheck(text, fileName)
 }
 
 export async function checkFile(file: File): Promise<CheckResult> {
-  const form = new FormData()
-  form.append('file', file)
-  const response = await fetch('/api/check', { method: 'POST', body: form })
-  await ensureOk(response)
-  return response.json()
-}
-
-export async function exportDocx(payload: {
-  file: File | null
-  text?: string
-  fileName: string
-  issues: Issue[]
-}): Promise<{ blob: Blob; filename: string }> {
-  const form = new FormData()
-  if (payload.file) form.append('file', payload.file)
-  if (payload.text !== undefined) form.append('text', payload.text)
-  form.append('issues', JSON.stringify(payload.issues))
-  form.append('fileName', payload.fileName)
-
-  const response = await fetch('/api/export/docx', { method: 'POST', body: form })
-  await ensureOk(response)
-
-  const disposition = response.headers.get('Content-Disposition') ?? ''
-  const match = /filename\*=UTF-8''([^;]+)/i.exec(disposition)
-  const filename = match ? decodeURIComponent(match[1]) : '校对批注.docx'
-  return { blob: await response.blob(), filename }
-}
-
-export async function reviewByLlm(
-  paragraphs: Paragraph[],
-  issues: Issue[],
-  llm: LlmConfig,
-): Promise<LlmReviewResult> {
-  const response = await fetch('/api/review/llm', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ paragraphs, issues, llm }),
-  })
-  await ensureOk(response)
-  return response.json()
+  const name = file.name.toLowerCase()
+  if (name.endsWith('.docx')) {
+    throw new Error('在线版暂不支持解析 .docx，请打开文档后复制正文粘贴到文本框；需要 Word 批注请使用本地完整版。')
+  }
+  if (!/\.(txt|md)$/.test(name)) {
+    throw new Error('在线版仅支持 .txt / .md 文件。')
+  }
+  return runCheck(await file.text(), file.name)
 }

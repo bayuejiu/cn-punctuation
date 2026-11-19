@@ -25,9 +25,7 @@ function renderParagraph(
       <mark
         key={issue.id}
         data-issue={issue.id}
-        className={`hl hl-${issue.severity}${issue.source === 'llm' ? ' is-llm' : ''}${
-          issue.id === activeId ? ' is-active' : ''
-        }`}
+        className={`hl hl-${issue.severity}${issue.id === activeId ? ' is-active' : ''}`}
         onClick={(event) => {
           event.stopPropagation()
           onSelect(issue.id)

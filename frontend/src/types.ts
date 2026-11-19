@@ -1,5 +1,5 @@
 export type Severity = 'error' | 'warning' | 'info'
-export type IssueSource = 'rule' | 'llm'
+export type IssueSource = 'rule'
 
 export interface Issue {
   id: string
@@ -42,25 +42,5 @@ export interface RuleMeta {
   category: string
   severity: Severity
   description: string
-}
-
-export interface AppConfig {
-  llmEnabled: boolean
-  defaultBaseUrl: string
-  defaultModel: string
-  rules: RuleMeta[]
-  version: string
-}
-
-export interface LlmConfig {
-  baseUrl: string
-  apiKey: string
-  model: string
-}
-
-export interface LlmReviewResult {
-  issues: Issue[]
-  confirmedIds: string[]
-  dropped: number
-  error?: string | null
+  priority: number
 }

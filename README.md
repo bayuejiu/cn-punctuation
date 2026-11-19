@@ -1,16 +1,19 @@
 # 中文标点校对
 
-一个针对中文写作场景的标点符号校对工具。用规则引擎自动检出逗号连用、顿号连用、省略号形式错误、引号方向写反等问题，并把结果以 **Word 原生批注** 的形式写回文档——原文一字不改，格式原样保留。
+一个面向中文写作场景的标点校对工具。粘贴文章即可自动检出逗号连用、顿号连用、省略号形式错误、双引号用反等问题，并在正文中逐处高亮、给出修改建议。
 
-支持粘贴文本或上传 `.docx / .txt / .md`，浏览器内完成校对与导出。核心检查完全本地运行，无需联网、无需 API Key。
+**纯前端实现**：19 条规则全部在浏览器内运行，文本不上传、不依赖后端、可离线使用。打开网页就能用。
+
+在线体验：<https://37kmi9gkw83tcleffkj.traesite.cn> （公开访问，无需安装）
 
 ## 功能
 
-- **19 条标点规则**：基于正则与上下文判定的确定性规则，毫秒级返回结果，可离线使用
+- **19 条标点规则**：正则与上下文判定的确定性规则，毫秒级返回结果
 - **可视化定位**：正文按段落渲染并高亮问题，右侧按类别分组，点击即定位到对应句子
-- **docx 批注导出**：在原文件上追加 Word 批注，不改动正文与格式；纯文本则先转 docx 再加批注
-- **防误报处理**：对小数 `3.14`、时间 `12:30`、URL、英文缩写等场景做白名单过滤
-- **可选 AI 复核**：接入任意 OpenAI 兼容接口，用于补漏与降误报；不配置也不影响任何核心功能
+- **防误报处理**：对小数 `3.14`、时间 `12:30`、URL、英文单词等场景做白名单过滤
+- **示例一键体验**：首屏点「载入示例并开始校对」，无需准备文本即可看到完整效果
+- **导出校对报告**：把问题清单导出为文本文件，便于逐条修改
+- **零后端**：没有服务器、没有数据库、没有 API Key，部署成本为零
 
 ## 规则清单
 
@@ -38,21 +41,22 @@
 
 同一处文字命中多条规则时，按优先级只保留最相关的一条。
 
-## 快速开始
+## 使用方式
 
-需要 Python 3.10+ 与 Node.js 18+。
+直接打开在线地址 <https://37kmi9gkw83tcleffkj.traesite.cn> 即可使用，无需安装或配置。
 
-### 1. 启动后端
+打开页面后有两条路径：
 
-```bash
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --host 127.0.0.1 --port 8000
-```
+1. 点击「载入示例并开始校对」，直接查看检出效果
+2. 在左侧粘贴文章，点击「开始校对」
 
-Windows 上如果 `python` 命中了同名文件，改用 `py -m pip install -r requirements.txt`。
+结果会同时出现在正文与右侧问题列表：正文高亮问题位置，右侧显示规则编号、原因与修改建议，点击条目可跳转定位。完成后可点击「导出校对报告」保存问题清单。
 
-### 2. 启动前端（开发模式）
+在线版支持粘贴文本与上传 `.txt / .md`；`.docx` 请打开文档后复制正文粘贴。需要直接在 Word 文档上写批注，见文末的本地完整版。
+
+## 本地运行
+
+需要 Node.js 18+。
 
 ```bash
 cd frontend
@@ -60,124 +64,70 @@ npm install
 npm run dev
 ```
 
-访问 http://127.0.0.1:5173 。前端已配置代理，把 `/api` 转发到 8000 端口。
+访问 http://127.0.0.1:5173 。
 
-### 3. 或者只跑后端
+生产构建：
 
 ```bash
-cd frontend
 npm run build
 ```
 
-构建产物在 `frontend/dist`，后端检测到该目录后会自动托管，直接访问 http://127.0.0.1:8000 即可，无需再启动 Node。
+产物在 `frontend/dist`，是纯静态文件，可直接放到任意静态服务器。
 
-## 在线部署（Render）
+## 部署
 
-仓库自带 `Dockerfile`，采用多阶段构建：Node 阶段编译前端，Python 阶段运行后端并托管 `frontend/dist`，最终只有一个容器、一个端口。任何支持 Docker 的平台都可以直接使用。
+线上版本：<https://37kmi9gkw83tcleffkj.traesite.cn> ，通过 Trae 静态部署发布，访问权限为「所有人可见」。
 
-以 Render 为例：
-
-1. 注册 Render 并授权访问 GitHub
-2. 点击 New → Web Service，选择本仓库
-3. Render 会自动识别根目录的 `Dockerfile`，实例类型选 Free
-4. 创建后等待构建完成，即可获得 `https://<服务名>.onrender.com`
-
-也可以使用仓库根目录的 `render.yaml` 通过 Blueprint 一键创建，健康检查路径为 `/api/health`。
-
-说明：免费实例在 15 分钟无访问后会休眠，首次打开需要等待约 1 分钟唤醒；服务会读取平台注入的 `PORT` 环境变量，无需手动配置端口。
-
-## 使用方式
-
-1. 在左侧粘贴文本，或拖入 `.docx / .txt / .md` 文件
-2. 点击「开始校对」，正文中问题处高亮显示
-3. 在右侧按级别、类别筛选问题，点击条目定位到具体位置
-4. 点击「导出批注文档」，下载带 Word 批注的 `.docx`
-
-## 大模型复核（可选）
-
-规则引擎不需要任何 Key。若希望进一步补漏，可在右上角「大模型设置」中填写接口地址、模型与 Key，或启动后端前设置环境变量：
-
-```bash
-export LLM_BASE_URL=https://api.deepseek.com
-export LLM_API_KEY=sk-xxxx
-export LLM_MODEL=deepseek-chat
-```
-
-Windows PowerShell 对应 `$env:LLM_BASE_URL="..."`。配置后页面会自动带默认值，用户无需重复填写。
-
-安全约定：Key 只保存在浏览器 sessionStorage 并随单次请求转发，不落盘、不入库。AI 只做补充与确认，规则结果始终保留；无法精确对应到原文的 AI 结果会被后端丢弃。
-
-## API
-
-| 方法 | 路径 | 说明 |
-| --- | --- | --- |
-| GET | `/api/health` | 健康检查 |
-| GET | `/api/config` | 规则清单与大模型默认配置 |
-| POST | `/api/check` | 校对文本或文件，支持 JSON 与 `multipart/form-data` |
-| POST | `/api/export/docx` | 依据问题列表生成带批注的 docx |
-| POST | `/api/review/llm` | 可选的大模型复核 |
-
-`/api/check` 的 JSON 请求示例：
-
-```json
-{ "text": "第一段。\n第二段，，有错误......", "fileName": "demo.txt" }
-```
-
-文件上传时表单字段名为 `file`，仅接受 `.docx / .txt / .md`，上限 20MB。
+更新线上内容时，在 `frontend` 目录执行 `npm run build`，再把 `dist` 目录重新发布即可。项目没有后端依赖，也可以直接部署到任意静态托管：Vercel、Netlify、Cloudflare Pages 或自有 Nginx，不需要环境变量，也不需要数据库。
 
 ## 项目结构
 
 ```
-backend/
-  app/
-    main.py              # FastAPI 入口与路由
-    config.py            # 环境变量配置
-    schemas.py           # 请求/响应模型
-    rules/
-      __init__.py        # 规则元数据（编号、名称、类别、级别、优先级）
-      punctuation.py     # 19 个规则函数与注册表
-      engine.py          # 逐段执行、重叠消解、统计
-    services/
-      docx_io.py         # docx 解析、文本转 docx、批注写入
-      llm.py             # OpenAI 兼容接口复核
-  tests/                 # 规则与 docx 往返测试
 frontend/
   src/
+    rules/
+      meta.ts            # 19 条规则的元数据（编号、名称、类别、级别、优先级）
+      punctuation.ts     # 19 个规则函数与注册表
+      engine.ts          # 逐段执行、重叠消解、统计
+    components/          # 输入面板、正文视图、问题面板
     App.tsx              # 页面状态与交互
-    components/          # 输入面板、正文视图、问题面板、设置面板
-    api.ts / types.ts
-scripts/
-  git-net.ps1            # 推拉代码时按代理状态自动切换
+    api.ts               # 本地校对入口（不发网络请求）
+    report.ts            # 校对报告生成与下载
+    sample.ts            # 示例文本
+backend/                 # 可选：本地完整版（FastAPI + docx 批注）
+scripts/                 # 推拉代码时自动切换代理
 ```
-
-## 测试
-
-```bash
-cd backend
-pytest
-```
-
-当前测试覆盖每条规则的正例与反例，以及 docx 批注写入的往返校验。
 
 ## 扩展新规则
 
-1. 在 `backend/app/rules/punctuation.py` 中实现 `(text: str) -> list[RuleHit]`
+1. 在 `frontend/src/rules/punctuation.ts` 中实现 `(text: string) => RuleHit[]`
 2. 把函数加入文件末尾的 `RULE_FUNCS` 注册表
-3. 在 `backend/app/rules/__init__.py` 的 `RULE_META` 中登记元数据（编号需与函数返回的 `rule_id` 一致）
+3. 在 `frontend/src/rules/meta.ts` 的 `RULE_META` 中登记元数据（编号需与函数返回的 `ruleId` 一致）
 
-接口层与前端无需改动，`/api/config` 会自动把新规则同步到页面。
+页面上的规则列表与执行逻辑都会自动同步，无需改动其他文件。
 
 ## 已知限制
 
-- 仅校对正文段落，页眉、页脚、脚注、文本框内的文字暂不处理
+- 在线版不直接解析 `.docx`，需要粘贴正文
 - 引号、括号的成对判断以段落为单位，跨段落引用可能被误报为「不成对」
 - 直角引号、单个破折号等属于「提示」级别，是否符合目标规范需人工判断
-- `.doc` 旧格式不支持，请另存为 `.docx`
-- AI 复核依赖外部服务，属可选增强，不影响规则引擎的独立可用性
+- 只检查标点与排版，不检查错别字、语法与文风
+
+## 附：本地完整版（可选）
+
+`backend/` 保留了 Python 版本的实现，额外支持上传 `.docx` 并在原文件上写入 **Word 原生批注**（原文与格式不变）。适合需要处理整份文档的场景。
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+再执行 `cd frontend && npm run build`，后端会自动托管构建产物，访问 http://127.0.0.1:8000 即可。仓库中的 `Dockerfile` 与 `render.yaml` 用于把完整版部署到支持 Docker 的平台。
 
 ## Roadmap
 
-- [ ] 微信公众号编辑器插件（复用 `/api/check`）
+- [ ] 微信公众号编辑器插件
 - [ ] Word / WPS 加载项与浏览器扩展
-- [ ] 支持自定义规则与忽略词表
+- [ ] 自定义规则与忽略词表
 - [ ] 团队词库与排版风格配置

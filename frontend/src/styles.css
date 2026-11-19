@@ -621,6 +621,16 @@ mark.hl {
   background: var(--accent);
 }
 
+.doc-empty .primary {
+  margin-top: 22px;
+}
+
+.doc-empty .doc-empty-note {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 /* ---------------- 问题面板 ---------------- */
 
 .issue-panel {

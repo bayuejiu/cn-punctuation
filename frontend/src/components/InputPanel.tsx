@@ -1,27 +1,17 @@
 import { useRef, useState } from 'react'
-import type { AppConfig } from '../types'
+import { RULE_META } from '../rules/meta'
+import { SAMPLE_TEXT } from '../sample'
 
-const SAMPLE_TEXT = `清晨的街道很安静，，只有早点铺还冒着热气......他忽然想起小时候，母亲总在门口等他回家。
-
-“你回来了。”母亲说：“饭在锅里。”
-
-他随手翻开旧笔记，看到那行熟悉的字：”要认真生活“。旁边还写着一句"别怕"。
-
-桌上摆着苹果、、梨和橘子。他愣了一下。。然后笑了。
-
-那一刻，他忽然明白——所谓成长,不过是把“算了”换成“再试一次”。`
-
-const ACCEPT = '.docx,.txt,.md'
+const ACCEPT = '.txt,.md'
 
 interface Props {
   busy: boolean
-  config: AppConfig | null
   onCheckFile: (file: File) => void
   onCheckText: (text: string) => void
 }
 
-export default function InputPanel({ busy, config, onCheckFile, onCheckText }: Props) {
-  const [mode, setMode] = useState<'file' | 'text'>('file')
+export default function InputPanel({ busy, onCheckFile, onCheckText }: Props) {
+  const [mode, setMode] = useState<'file' | 'text'>('text')
   const [text, setText] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -35,8 +25,12 @@ export default function InputPanel({ busy, config, onCheckFile, onCheckText }: P
       return
     }
     const name = next.name.toLowerCase()
-    if (!/\.(docx|txt|md)$/.test(name)) {
-      setLocalError(name.endsWith('.doc') ? '.doc 暂不支持，请另存为 .docx。' : '仅支持 .docx / .txt / .md 文件。')
+    if (name.endsWith('.docx')) {
+      setLocalError('在线版暂不支持 .docx，请打开文档后复制正文粘贴；需要 Word 批注请使用本地完整版。')
+      return
+    }
+    if (!/\.(txt|md)$/.test(name)) {
+      setLocalError('在线版仅支持 .txt / .md 文件。')
       return
     }
     setFile(next)
@@ -63,22 +57,47 @@ export default function InputPanel({ busy, config, onCheckFile, onCheckText }: P
     <section className="panel input-panel">
       <div className="tabs">
         <button
-          className={mode === 'file' ? 'tab is-active' : 'tab'}
-          onClick={() => setMode('file')}
-          type="button"
-        >
-          上传文档
-        </button>
-        <button
           className={mode === 'text' ? 'tab is-active' : 'tab'}
           onClick={() => setMode('text')}
           type="button"
         >
           粘贴文本
         </button>
+        <button
+          className={mode === 'file' ? 'tab is-active' : 'tab'}
+          onClick={() => setMode('file')}
+          type="button"
+        >
+          上传文档
+        </button>
       </div>
 
-      {mode === 'file' ? (
+      {mode === 'text' ? (
+        <div className="text-area-wrap">
+          <textarea
+            value={text}
+            onChange={(event) => {
+              setText(event.target.value)
+              setLocalError('')
+            }}
+            placeholder="把文章粘贴到这里……"
+            spellCheck={false}
+          />
+          <div className="text-meta">
+            <span>{text.length} 字</span>
+            <button
+              type="button"
+              className="link"
+              onClick={() => {
+                setText(SAMPLE_TEXT)
+                setLocalError('')
+              }}
+            >
+              载入示例文本
+            </button>
+          </div>
+        </div>
+      ) : (
         <div
           className={dragging ? 'dropzone is-dragging' : 'dropzone'}
           onClick={() => inputRef.current?.click()}
@@ -113,34 +132,9 @@ export default function InputPanel({ busy, config, onCheckFile, onCheckText }: P
           ) : (
             <div className="drop-hint">
               <strong>拖拽文档到这里</strong>
-              <span>或点击选择 .docx / .txt / .md</span>
+              <span>或点击选择 .txt / .md</span>
             </div>
           )}
-        </div>
-      ) : (
-        <div className="text-area-wrap">
-          <textarea
-            value={text}
-            onChange={(event) => {
-              setText(event.target.value)
-              setLocalError('')
-            }}
-            placeholder="把文章粘贴到这里……"
-            spellCheck={false}
-          />
-          <div className="text-meta">
-            <span>{text.length} 字</span>
-            <button
-              type="button"
-              className="link"
-              onClick={() => {
-                setText(SAMPLE_TEXT)
-                setLocalError('')
-              }}
-            >
-              载入示例文本
-            </button>
-          </div>
         </div>
       )}
 
@@ -149,25 +143,23 @@ export default function InputPanel({ busy, config, onCheckFile, onCheckText }: P
       <button className="primary wide" type="button" onClick={submit} disabled={busy}>
         {busy ? '正在校对…' : '开始校对'}
       </button>
-      <p className="hint">仅标注问题，不修改原文；导出后可在 Word 中查看批注。</p>
+      <p className="hint">校对在浏览器本地完成，文本不会上传；仅标注问题，不修改原文。</p>
       {mode === 'file' && (
-        <p className="hint muted">支持正文与表格内文字；页眉页脚、脚注、文本框暂不检查。</p>
+        <p className="hint muted">.docx 请打开文档后复制正文粘贴到「粘贴文本」。</p>
       )}
 
-      {config && config.rules.length > 0 && (
-        <details className="rules-box">
-          <summary>检查规则（{config.rules.length} 条）</summary>
-          <ul>
-            {config.rules.map((rule) => (
-              <li key={rule.id}>
-                <span className="rule-cat">{rule.category}</span>
-                <span className="rule-name">{rule.name}</span>
-                <span className="rule-id">{rule.id}</span>
-              </li>
-            ))}
-          </ul>
-        </details>
-      )}
+      <details className="rules-box">
+        <summary>检查规则（{RULE_META.length} 条）</summary>
+        <ul>
+          {RULE_META.map((rule) => (
+            <li key={rule.id}>
+              <span className="rule-cat">{rule.category}</span>
+              <span className="rule-name">{rule.name}</span>
+              <span className="rule-id">{rule.id}</span>
+            </li>
+          ))}
+        </ul>
+      </details>
     </section>
   )
 }

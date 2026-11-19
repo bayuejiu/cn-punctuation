@@ -8,23 +8,11 @@ interface Props {
   issues: Issue[]
   activeId: string | null
   hasResult: boolean
-  llmReady: boolean
-  reviewing: boolean
   onSelect: (id: string) => void
-  onReview: () => void
 }
 
-export default function IssuePanel({
-  issues,
-  activeId,
-  hasResult,
-  llmReady,
-  reviewing,
-  onSelect,
-  onReview,
-}: Props) {
+export default function IssuePanel({ issues, activeId, hasResult, onSelect }: Props) {
   const [severity, setSeverity] = useState<'all' | Severity>('all')
-  const [source, setSource] = useState<'all' | 'rule' | 'llm'>('all')
   const [category, setCategory] = useState<'all' | string>('all')
 
   const counts = useMemo(
@@ -44,10 +32,9 @@ export default function IssuePanel({
   const filtered = useMemo(() => {
     return issues
       .filter((i) => severity === 'all' || i.severity === severity)
-      .filter((i) => source === 'all' || i.source === source)
       .filter((i) => category === 'all' || i.category === category)
       .sort((a, b) => a.paragraphIndex - b.paragraphIndex || a.start - b.start)
-  }, [issues, severity, source, category])
+  }, [issues, severity, category])
 
   const grouped = useMemo(() => {
     const map = new Map<string, Issue[]>()
@@ -73,15 +60,6 @@ export default function IssuePanel({
           <h2>问题列表</h2>
           <span className="issue-total">{issues.length}</span>
         </div>
-        <button
-          className="ghost small"
-          type="button"
-          onClick={onReview}
-          disabled={!hasResult || !llmReady || reviewing}
-          title={llmReady ? '用大模型复核规则结果' : '需先在「大模型设置」中填写接口'}
-        >
-          {reviewing ? '复核中…' : 'AI 复核'}
-        </button>
       </div>
 
       {hasResult && (
@@ -106,11 +84,6 @@ export default function IssuePanel({
               ))}
             </div>
             <div className="select-row">
-              <select value={source} onChange={(e) => setSource(e.target.value as typeof source)}>
-                <option value="all">全部来源</option>
-                <option value="rule">规则引擎</option>
-                <option value="llm">AI 复核</option>
-              </select>
               <select value={category} onChange={(e) => setCategory(e.target.value)}>
                 <option value="all">全部类别</option>
                 {categories.map((name) => (
@@ -157,8 +130,6 @@ export default function IssuePanel({
                 <div className="issue-top">
                   <span className={`sev sev-${issue.severity}`}>{SEVERITY_LABEL[issue.severity]}</span>
                   <span className="issue-rule">{issue.ruleId}</span>
-                  {issue.source === 'llm' && <span className="badge-ai">AI</span>}
-                  {issue.confirmed && <span className="badge-ok">AI 已确认</span>}
                   <span className="issue-pos">
                     第 {issue.paragraphIndex + 1} 段 · {issue.start}
                   </span>
