@@ -1,0 +1,14 @@
+.git
+.gitignore
+.trae
+.vscode
+.idea
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.venv
+frontend/node_modules
+frontend/dist
+.screenshots
+scripts
+*.md

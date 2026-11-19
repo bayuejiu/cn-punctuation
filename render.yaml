@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: cn-punctuation
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
