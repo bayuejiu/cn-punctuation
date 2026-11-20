@@ -286,6 +286,90 @@ export function ruleConflictingPunct(text: string): RuleHit[] {
 }
 
 // ---------------------------------------------------------------------------
+// 顿号与分号选用（QP-06）
+// ---------------------------------------------------------------------------
+
+// 以分号、冒号、句末标点、换行为并列组分隔符
+const GROUP_BOUNDARY_RE = /[；：。！？!?\n\r]/
+
+function findGroupBounds(text: string, pivot: number): [number, number] {
+  let l = pivot - 1
+  while (l >= 0 && !GROUP_BOUNDARY_RE.test(text[l])) l -= 1
+  let r = pivot + 1
+  while (r < text.length && !GROUP_BOUNDARY_RE.test(text[r])) r += 1
+  return [l + 1, r]
+}
+
+function splitByPunct(text: string, punct: string): string[] {
+  return text.split(punct).map((s) => s.trim()).filter((s) => s.length > 0)
+}
+
+// 额外需要保护的成对符号（《》【】「」『』〈〉〔〕）
+const ADDITIONAL_PAIRS: Array<[string, string]> = [
+  ['《', '》'],
+  ['【', '】'],
+  ['「', '」'],
+  ['『', '』'],
+  ['〈', '〉'],
+  ['〔', '〕'],
+]
+
+export function ruleDunhaoSemicolonChoice(text: string): RuleHit[] {
+  const hits: RuleHit[] = []
+  const protectedSpans: Array<[number, number]>[] = [
+    pairedSpans(text, '“', '”'),
+    pairedSpans(text, '（', '）'),
+  ]
+  for (const [opener, closer] of ADDITIONAL_PAIRS) {
+    protectedSpans.push(pairedSpans(text, opener, closer))
+  }
+
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i]
+    if (ch !== '、' && ch !== '；') continue
+    // 所有成对符号内部都跳过
+    if (protectedSpans.some((spans) => isInside(i, spans))) continue
+    if (!cjkNear(text, i, i + 1)) continue
+
+    const [lo, hi] = findGroupBounds(text, i)
+    const group = text.slice(lo, hi)
+
+    if (ch === '、') {
+      // 形态 A：至少两个分项含逗号 → 层级混乱，应升级为分号
+      const parts = splitByPunct(group, '、')
+      if (parts.length < 2) continue
+      const complexCount = parts.filter((p) => p.includes('，')).length
+      if (complexCount < 2) continue
+      hits.push({
+        ruleId: 'QP-06',
+        start: i,
+        end: i + 1,
+        message: '顿号与分号选用：并列的多个分项内部都已含逗号，层级混乱。',
+        suggestion: '建议将顿号改为分号 ；',
+      })
+    } else {
+      // 形态 B：分号分隔的各分项均为简单短语 → 可降级为顿号
+      const parts = splitByPunct(group, '；')
+      if (parts.length < 2) continue
+      const allSimple = parts.every((p) => !p.includes('，'))
+      if (!allSimple) continue
+      // 保守阈值：所有分项 ≤ 12 字才认为是"简单短语"
+      const allShort = parts.every((p) => p.length <= 12)
+      if (!allShort) continue
+      hits.push({
+        ruleId: 'QP-06',
+        start: i,
+        end: i + 1,
+        message: '顿号与分号选用：并列成分均为简短词或短语。',
+        suggestion: '可将分号改为顿号 、',
+      })
+    }
+  }
+
+  return hits
+}
+
+// ---------------------------------------------------------------------------
 // 省略号
 // ---------------------------------------------------------------------------
 
@@ -571,6 +655,7 @@ export const RULE_FUNCS: Array<[string, RuleFn]> = [
   ['QP-03', rulePeriodRepeat],
   ['QP-04', ruleColonSemicolonRepeat],
   ['QP-05', ruleConflictingPunct],
+  ['QP-06', ruleDunhaoSemicolonChoice],
   ['QE-01', ruleEllipsis],
   ['QE-02', ruleEllipsisPeriod],
   ['QB-01', ruleAsciiParentheses],

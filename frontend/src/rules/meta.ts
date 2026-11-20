@@ -82,6 +82,14 @@ export const RULE_META: RuleMeta[] = [
     priority: 65,
   },
   {
+    id: 'QP-06',
+    name: '顿号与分号选用',
+    category: '顿号',
+    severity: 'info',
+    description: '并列的词或短语之间用顿号；并列的分句，或内部已含逗号的较长分项之间用分号。',
+    priority: 35,
+  },
+  {
     id: 'QE-01',
     name: '省略号形式错误',
     category: '省略号',
