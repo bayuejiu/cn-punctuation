@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { RULE_META } from '../rules/meta'
 import { SAMPLE_TEXT } from '../sample'
 
-const ACCEPT = '.txt,.md'
+const ACCEPT = '.txt,.md,.docx'
 
 interface Props {
   busy: boolean
@@ -25,12 +25,8 @@ export default function InputPanel({ busy, onCheckFile, onCheckText }: Props) {
       return
     }
     const name = next.name.toLowerCase()
-    if (name.endsWith('.docx')) {
-      setLocalError('在线版暂不支持 .docx，请打开文档后复制正文粘贴；需要 Word 批注请使用本地完整版。')
-      return
-    }
-    if (!/\.(txt|md)$/.test(name)) {
-      setLocalError('在线版仅支持 .txt / .md 文件。')
+    if (!/\.(txt|md|docx)$/.test(name)) {
+      setLocalError('在线版支持 .docx / .txt / .md 文件。')
       return
     }
     setFile(next)
@@ -132,7 +128,7 @@ export default function InputPanel({ busy, onCheckFile, onCheckText }: Props) {
           ) : (
             <div className="drop-hint">
               <strong>拖拽文档到这里</strong>
-              <span>或点击选择 .txt / .md</span>
+              <span>或点击选择 .docx / .txt / .md</span>
             </div>
           )}
         </div>
@@ -145,7 +141,7 @@ export default function InputPanel({ busy, onCheckFile, onCheckText }: Props) {
       </button>
       <p className="hint">校对在浏览器本地完成，文本不会上传；仅标注问题，不修改原文。</p>
       {mode === 'file' && (
-        <p className="hint muted">.docx 请打开文档后复制正文粘贴到「粘贴文本」。</p>
+        <p className="hint muted">.docx 在浏览器内提取正文文字后校对，不上传文件；批注写回需使用本地完整版。</p>
       )}
 
       <details className="rules-box">
