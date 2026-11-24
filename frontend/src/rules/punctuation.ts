@@ -11,6 +11,8 @@ export interface RuleHit {
   end: number
   message: string
   suggestion: string
+  /** 可机器替换的目标文本；undefined 表示需人工确认 */
+  fix?: string
 }
 
 const CJK_START = 0x3400
@@ -19,24 +21,57 @@ const CJK_PUNCT = '，。、；：！？（）【】《》“”‘’…—·'
 const URL_RE =
   /(?:https?:\/\/|www\.)[^\s，。；：！？（）【】「」『』"“”]+|[\w.+-]+@[\w-]+\.[\w.-]+/g
 
+/** Markdown 围栏代码块 ```...```（跨行） */
+const MD_FENCE_RE = /^`{3,}[^\n]*\n?[\s\S]*?\n?`{3,}\s*$/gm
+/** Markdown 行内代码 `...` */
+const MD_INLINE_CODE_RE = /`[^`\n]+`/g
+/** 微博/小红书话题标签 #...#  */
+const HASHTAG_RE = /#[^\s#，。；：！？]{1,50}#/g
+/** @ 引用：@ 后紧跟非空白/标点的字符 */
+const MENTION_RE = /@[\w\u4e00-\u9fff]{1,50}/g
+
 function isCjk(ch: string): boolean {
   if (!ch) return false
   const code = ch.charCodeAt(0)
   return code >= CJK_START && code <= CJK_END
 }
 
-function ignoredSpans(text: string): Array<[number, number]> {
+/**
+ * 计算需要跳过的区间（全局偏移）。覆盖：
+ * - URL / 邮箱
+ * - Markdown 围栏代码块（跨行）
+ * - Markdown 行内代码
+ * - 话题标签 #...#
+ * - @ 引用
+ */
+export function computeIgnoredSpans(text: string): Array<[number, number]> {
   const spans: Array<[number, number]> = []
-  for (const match of text.matchAll(URL_RE)) {
-    const start = match.index ?? 0
-    spans.push([start, start + match[0].length])
+  const collect = (re: RegExp) => {
+    for (const match of text.matchAll(re)) {
+      const start = match.index ?? 0
+      spans.push([start, start + match[0].length])
+    }
   }
-  return spans
+  collect(URL_RE)
+  collect(MD_FENCE_RE)
+  collect(MD_INLINE_CODE_RE)
+  collect(HASHTAG_RE)
+  collect(MENTION_RE)
+  // 合并重叠区间
+  spans.sort((a, b) => a[0] - b[0])
+  const merged: Array<[number, number]> = []
+  for (const span of spans) {
+    const last = merged[merged.length - 1]
+    if (last && span[0] <= last[1]) {
+      last[1] = Math.max(last[1], span[1])
+    } else {
+      merged.push([span[0], span[1]])
+    }
+  }
+  return merged
 }
 
-function inIgnored(pos: number, spans: Array<[number, number]>): boolean {
-  return spans.some(([start, end]) => start <= pos && pos < end)
-}
+// 旧的 ignoredSpans + inIgnored 已废弃：统一在 engine 层用 computeIgnoredSpans + isInIgnoredRange 过滤
 
 function cjkNear(text: string, start: number, end: number, distance = 3): boolean {
   const before = text.slice(Math.max(0, start - distance), start)
@@ -165,7 +200,99 @@ function countChar(text: string, ch: string): number {
   return count
 }
 
+/**
+ * 全段落层面的引号配对检查。
+ * 与逐段 ruleQuoteUnbalanced 不同，这个函数能识别「对话流」——
+ * 即前引号在段落开头、中间有若干无引号旁白段、后引号在后续段落。
+ * 这类合法的跨段落配对不再报 QV-04。
+ */
+export function ruleQuoteUnbalancedGlobal(
+  fullText: string,
+  ignored: Array<[number, number]>,
+): RuleHit[] {
+  const paraStarts: number[] = [0]
+  for (let i = 0; i < fullText.length; i += 1) {
+    if (fullText[i] === '\n') paraStarts.push(i + 1)
+  }
+  const globalToPara = (pos: number): number => {
+    let lo = 0
+    let hi = paraStarts.length - 1
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1
+      if (paraStarts[mid] <= pos) lo = mid
+      else hi = mid - 1
+    }
+    return lo
+  }
+
+  // 收集所有「」出现的位置，跳过 ignored 区间
+  type QuoteMark = { pos: number; kind: 'open' | 'close' }
+  const marks: QuoteMark[] = []
+  for (let i = 0; i < fullText.length; i += 1) {
+    const ch = fullText[i]
+    if (ch !== '“' && ch !== '”') continue
+    if (ignored.some(([s, e]) => s <= i && i < e)) continue
+    marks.push({ pos: i, kind: ch === '“' ? 'open' : 'close' })
+  }
+
+  // 栈配对，找未匹配项
+  const stack: number[] = []
+  const extraClose: number[] = []
+  for (const mark of marks) {
+    if (mark.kind === 'open') stack.push(mark.pos)
+    else if (stack.length > 0) stack.pop()
+    else extraClose.push(mark.pos)
+  }
+
+  // 尝试配对 stack 里的未闭合 open 和 extraClose 里的多余 close，
+  // 条件：段落差 ≤ 5（对话流通常不超过 5 段）
+  const unmatchedOpen = [...stack]
+  const unmatchedClose = [...extraClose]
+  const consumedOpen = new Set<number>()
+  const consumedClose = new Set<number>()
+
+  for (const openPos of unmatchedOpen) {
+    const openPara = globalToPara(openPos)
+    const matchedClose = unmatchedClose.find(
+      (closePos) =>
+        !consumedClose.has(closePos) &&
+        globalToPara(closePos) > openPara &&
+        globalToPara(closePos) - openPara <= 5,
+    )
+    if (matchedClose !== undefined) {
+      consumedOpen.add(openPos)
+      consumedClose.add(matchedClose)
+    }
+  }
+
+  // 剩下未配对的才真正报错
+  const hits: RuleHit[] = []
+  const reportableOpen = unmatchedOpen.filter((p) => !consumedOpen.has(p))
+  const reportableClose = unmatchedClose.filter((p) => !consumedClose.has(p))
+
+  for (const pos of reportableOpen) {
+    hits.push({
+      ruleId: 'QV-04',
+      start: pos,
+      end: pos + 1,
+      message: '双引号不成对：未找到匹配的闭合引号 ” 。',
+      suggestion: '检查是否缺少闭合引号，或确认是否为跨段落引用',
+    })
+  }
+  for (const pos of reportableClose) {
+    hits.push({
+      ruleId: 'QV-04',
+      start: pos,
+      end: pos + 1,
+      message: '双引号不成对：闭合引号 ” 出现在没有对应开启引号的位置。',
+      suggestion: '检查引号配对是否正确',
+    })
+  }
+  return hits
+}
+
 export function ruleQuoteUnbalanced(text: string): RuleHit[] {
+  // 旧的逐段版本保留但不再由 RULE_FUNCS 调用
   const left = countChar(text, '“')
   const right = countChar(text, '”')
   if (left === right) return []
@@ -617,10 +744,10 @@ const ASCII_PUNCT_MAP: Record<string, string> = {
 
 export function ruleAsciiPunctInCjk(text: string): RuleHit[] {
   const hits: RuleHit[] = []
-  const ignored = ignoredSpans(text)
+  // ignored 区间过滤已在 engine 层统一处理
   for (let i = 0; i < text.length; i += 1) {
     const ch = text[i]
-    if (!(ch in ASCII_PUNCT_MAP) || inIgnored(i, ignored)) continue
+    if (!(ch in ASCII_PUNCT_MAP)) continue
     const prev = i > 0 ? text[i - 1] : ''
     if (!isCjk(prev)) continue
     const next = i + 1 < text.length ? text[i + 1] : ''
@@ -648,7 +775,7 @@ export const RULE_FUNCS: Array<[string, RuleFn]> = [
   ['QV-01', ruleQuoteReversed],
   ['QV-02', ruleAsciiDoubleQuotes],
   ['QV-03', ruleSingleQuotes],
-  ['QV-04', ruleQuoteUnbalanced],
+  // QV-04 移至全局检查 ruleQuoteUnbalancedGlobal，不再逐段调用
   ['QV-05', ruleCornerQuotes],
   ['QP-01', ruleCommaRepeat],
   ['QP-02', ruleDunhaoRepeat],

@@ -868,6 +868,74 @@ mark.hl {
   border-style: dashed;
 }
 
+/* ===== 修改稿标签页 ===== */
+.doc-tabs {
+  display: flex;
+  gap: 0;
+}
+
+.doc-tab {
+  padding: 4px 12px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.doc-tab:hover {
+  color: var(--text);
+}
+
+.doc-tab.is-active {
+  color: var(--accent-dark);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+/* ===== 修改稿预览 ===== */
+.fixed-preview {
+  margin: 0;
+  padding: 16px 20px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.9;
+  color: #2c3e36;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ===== 复制按钮 ===== */
+.copy {
+  padding: 4px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.copy:hover {
+  background: #f0f4f2;
+  border-color: var(--accent);
+}
+
+.copy-strong {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  font-weight: 700;
+}
+
+.copy-strong:hover {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+}
+
 .issue-pos {
   margin-left: auto;
   font-size: 10.5px;
@@ -970,4 +1038,121 @@ mark.hl {
   .para {
     text-indent: 0;
   }
+}
+
+/* ===== 场景选择器 ===== */
+.scene-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+}
+
+.scene-picker label {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.scene-picker select {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.scene-picker select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* ===== Diff 对比视图 ===== */
+.diff-view {
+  display: flex;
+  gap: 12px;
+  height: 100%;
+  overflow: hidden;
+}
+
+.diff-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.diff-col-header {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--surface);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.04em;
+}
+
+.diff-original .diff-col-header {
+  background: #fafafa;
+  color: #666;
+}
+
+.diff-corrected .diff-col-header {
+  background: #eef5f2;
+  color: var(--accent-dark);
+}
+
+.diff-pre {
+  flex: 1;
+  overflow: auto;
+  padding: 12px 16px;
+  margin: 0;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.diff-original .diff-pre {
+  color: #888;
+}
+
+/* ===== 自动清洗 checkbox ===== */
+.checkbox-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.checkbox-inline input[type='checkbox'] {
+  cursor: pointer;
+}
+
+/* ===== 字数提醒 ===== */
+.char-hint {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.char-hint span {
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #f0f4f2;
+  color: var(--accent-dark);
+}
+
+.char-hint span.over {
+  background: #fde8e8;
+  color: #c0392b;
+  font-weight: 600;
 }

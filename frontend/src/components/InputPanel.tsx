@@ -8,6 +8,10 @@ interface Props {
   busy: boolean
   onCheckFile: (file: File) => void
   onCheckText: (text: string) => void
+  /** 当前字数，用来在文案模式下显示平台字数提醒 */
+  charCount?: number
+  /** 当前选中的场景，用来决定是否显示字数提醒 */
+  scene: 'general' | 'copywriting' | 'fanfic'
 }
 
 /** 自动清洗：合并多余换行、去行首尾空白、统一全角空格 */
@@ -25,7 +29,21 @@ export function autoClean(text: string): string {
     .trim()
 }
 
-export default function InputPanel({ busy, onCheckFile, onCheckText }: Props) {
+const PLATFORM_LIMITS: Record<string, { name: string; limit: number }[]> = {
+  copywriting: [
+    { name: '小红书正文', limit: 1000 },
+    { name: '微博', limit: 2000 },
+  ],
+  fanfic: [{ name: 'Lofter 正文', limit: 30000 }],
+}
+
+export default function InputPanel({
+  busy,
+  onCheckFile,
+  onCheckText,
+  charCount,
+  scene,
+}: Props) {
   const [mode, setMode] = useState<'file' | 'text'>('text')
   const [text, setText] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -120,6 +138,24 @@ export default function InputPanel({ busy, onCheckFile, onCheckText }: Props) {
               载入示例文本
             </button>
           </div>
+          {(() => {
+            const limits = PLATFORM_LIMITS[scene]
+            if (!limits || !charCount || charCount === 0) return null
+            return (
+              <div className="char-hint">
+                {limits.map((l) => {
+                  const over = charCount > l.limit
+                  const remain = l.limit - charCount
+                  return (
+                    <span key={l.name} className={over ? 'over' : 'ok'}>
+                      {l.name}：{charCount}/{l.limit} 字
+                      {over ? `（超 ${-remain} 字）` : `（剩余 ${remain} 字）`}
+                    </span>
+                  )
+                })}
+              </div>
+            )
+          })()}
         </div>
       ) : (
         <div
