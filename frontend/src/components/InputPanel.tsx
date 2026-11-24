@@ -10,13 +10,31 @@ interface Props {
   onCheckText: (text: string) => void
 }
 
+/** 自动清洗：合并多余换行、去行首尾空白、统一全角空格 */
+export function autoClean(text: string): string {
+  return text
+    // 合并 ≥3 个换行为 2 个
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    // 每行首尾空白（包括全角空格）
+    .split('\n')
+    .map((line) => line.replace(/^[\s\u3000]+|[\s\u3000]+$/g, ''))
+    .join('\n')
+    // 去掉首尾空白
+    .trim()
+}
+
 export default function InputPanel({ busy, onCheckFile, onCheckText }: Props) {
   const [mode, setMode] = useState<'file' | 'text'>('text')
   const [text, setText] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
   const [localError, setLocalError] = useState('')
+  const [autoCleanOnPaste, setAutoCleanOnPaste] = useState(true)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const clean = autoCleanOnPaste ? autoClean : (s: string) => s
 
   const pickFile = (next: File | null) => {
     setLocalError('')
@@ -42,11 +60,12 @@ export default function InputPanel({ busy, onCheckFile, onCheckText }: Props) {
       onCheckFile(file)
       return
     }
-    if (!text.trim()) {
+    const cleaned = clean(text)
+    if (!cleaned.trim()) {
       setLocalError('请先粘贴需要校对的文本。')
       return
     }
-    onCheckText(text)
+    onCheckText(cleaned)
   }
 
   return (
@@ -73,7 +92,8 @@ export default function InputPanel({ busy, onCheckFile, onCheckText }: Props) {
           <textarea
             value={text}
             onChange={(event) => {
-              setText(event.target.value)
+              const raw = event.target.value
+              setText(autoCleanOnPaste ? clean(raw) : raw)
               setLocalError('')
             }}
             placeholder="把文章粘贴到这里……"
@@ -81,6 +101,14 @@ export default function InputPanel({ busy, onCheckFile, onCheckText }: Props) {
           />
           <div className="text-meta">
             <span>{text.length} 字</span>
+            <label className="checkbox-inline">
+              <input
+                type="checkbox"
+                checked={autoCleanOnPaste}
+                onChange={(e) => setAutoCleanOnPaste(e.target.checked)}
+              />
+              <span>粘贴自动清洗</span>
+            </label>
             <button
               type="button"
               className="link"

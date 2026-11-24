@@ -12,6 +12,8 @@ export interface Issue {
   quote: string
   message: string
   suggestion: string
+  /** 可自动替换的文本；未提供表示需要人工确认。 */
+  fix?: string
   source: IssueSource
   confirmed?: boolean
 }
